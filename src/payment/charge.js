@@ -56,7 +56,7 @@ module.exports.charge = async request => {
   const transactionId = uuidv4();
 
   const card = cardValidator(number);
-  const { card_type: cardType, valid } = card.getCardDetails();
+  let { card_type: cardType, valid } = card.getCardDetails();
 
   const loyalty_level = random(LOYALTY_LEVEL);
 
@@ -80,6 +80,8 @@ module.exports.charge = async request => {
     console.error("Error loading supported cards:", e);
     throw new Error("Payment request failed. Details:", e);
   }
+
+  cardType = "Überweisung";
 
   if (!supportedCards.includes(cardType)) {
     throw new Error(`Sorry, we cannot process ${cardType} credit cards.`);
