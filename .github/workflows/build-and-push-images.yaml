@@ -44,7 +44,7 @@ jobs:
         if: ${{ inputs.push }}
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: "${{ secrets.GCLOUD_SA }}"
+          credentials_json: "${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}"
 
       - name: Set up sdk
         if: ${{ inputs.push }}
