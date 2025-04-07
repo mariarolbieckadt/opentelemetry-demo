@@ -30,5 +30,8 @@
     "pino": "9.6.0",
     "simple-card-validator": "1.1.0",
     "uuid": "11.1.0"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
   }
 }
