@@ -173,7 +173,7 @@ class WebsiteBrowserUser(PlaywrightUser):
             await page.goto("/", wait_until="domcontentloaded")
 
             # Add 1-4 products to the cart
-            for i in range(random.choice([1, 2, 3, 4])):            
+            for i in range(random.choice([1, 2, 3, 4])):
                 # Get a random product link and click on it
                 product_id = random.choice(products)
                 await page.click(f"a[href='/product/{product_id}']")
@@ -210,7 +210,7 @@ class WebsiteBrowserUser(PlaywrightUser):
 
             # Complete the order
             await page.click('button:has-text("Place Order")')
-            await page.wait_for_timeout(2000)  # giving the browser time to export the traces 
+            await page.wait_for_timeout(2000)  # giving the browser time to export the traces
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
