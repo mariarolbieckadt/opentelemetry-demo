@@ -64,7 +64,7 @@ const CheckoutForm = ({ onSubmit }: IProps) => {
 
   return (
     <S.CheckoutForm
-      onSubmit={(event: { preventDefault: () => void; }) => {
+      onSubmit={(event: { preventDefault: () => void }) => {
         event.preventDefault();
         onSubmit({
           email,
@@ -138,7 +138,7 @@ const CheckoutForm = ({ onSubmit }: IProps) => {
         value={creditCardNumber}
         onChange={handleChange}
         required
-        pattern="\d{4}-\d{4}-\d{4}-\d{4}"
+        pattern="\d{4}-\d{4}-\d{4}-\d{4}|\d{4}-\d{6}-\d{5}"
       />
 
       <S.CardRow>
@@ -193,7 +193,9 @@ const CheckoutForm = ({ onSubmit }: IProps) => {
         <Link href="/">
           <S.CartButton $type="secondary">Continue Shopping</S.CartButton>
         </Link>
-        <S.CartButton data-cy={CypressFields.CheckoutPlaceOrder} type="submit">Place Order</S.CartButton>
+        <S.CartButton data-cy={CypressFields.CheckoutPlaceOrder} type="submit">
+          Place Order
+        </S.CartButton>
       </S.SubmitContainer>
     </S.CheckoutForm>
   );

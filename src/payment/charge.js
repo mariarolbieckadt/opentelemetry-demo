@@ -1,10 +1,9 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 const { context, propagation, trace, metrics } = require('@opentelemetry/api');
-const cardValidator = require('simple-card-validator');
-const { v4: uuidv4 } = require('uuid');
+const valid = require("card-validator");
+const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
-const yaml = require("js-yaml");
 
 const { OpenFeature } = require("@openfeature/server-sdk");
 const { FlagdProvider } = require("@openfeature/flagd-provider");
@@ -23,7 +22,18 @@ function random(arr) {
   return arr[index];
 }
 
-module.exports.charge = async request => {
+// Load supported cards from YAML file
+let supportedCards;
+try {
+  const cardsFile = fs.readFileSync("cards.json", "utf8");
+  supportedCards = JSON.parse(cardsFile);
+  console.log(supportedCards);
+} catch (e) {
+  console.error("Error loading supported cards:", e);
+  throw new Error("Payment request failed. Details:", e);
+}
+
+module.exports.charge = async (request) => {
   const span = tracer.startSpan("charge");
 
   await OpenFeature.setProviderAndWait(flagProvider);
@@ -55,36 +65,23 @@ module.exports.charge = async request => {
   const lastFourDigits = number.substr(-4);
   const transactionId = uuidv4();
 
-  const card = cardValidator(number);
-  let { card_type: cardType, valid } = card.getCardDetails();
+  const cardValidation = valid.number(number);
 
   const loyalty_level = random(LOYALTY_LEVEL);
-
   span.setAttributes({
-    "app.payment.card_type": cardType,
-    "app.payment.card_valid": valid,
+    "app.payment.card_type": cardValidation.card.type,
+    "app.payment.card_valid": cardValidation.isValid,
     "app.loyalty.level": loyalty_level,
   });
 
-  if (!valid) {
+  if (!cardValidation.isValid) {
     throw new Error("Credit card info is invalid.");
   }
 
-  // Load supported cards from YAML file
-  let supportedCards;
-  try {
-    const fileContents = fs.readFileSync("supported-cards.yaml", "utf8");
-    const data = yaml.load(fileContents);
-    supportedCards = data.supported_cards.map((card) => card.toLowerCase());
-  } catch (e) {
-    console.error("Error loading supported cards:", e);
-    throw new Error("Payment request failed. Details:", e);
-  }
-
-  cardType = "Überweisung";
-
-  if (!supportedCards.includes(cardType)) {
-    throw new Error(`Sorry, we cannot process ${cardType} credit cards.`);
+  if (!supportedCards.find((card) => card.type === cardValidation.card.type)) {
+    throw new Error(
+      `Sorry, we cannot process ${cardValidation.card.niceType} credit cards.`
+    );
   }
 
   if (currentYear * 12 + currentMonth > year * 12 + month) {
@@ -104,6 +101,8 @@ module.exports.charge = async request => {
   } else {
     span.setAttribute("app.payment.charged", true);
   }
+
+  const cardType = cardValidation.card.type;
 
   const { units, nanos, currencyCode } = request.amount;
   logger.info(
