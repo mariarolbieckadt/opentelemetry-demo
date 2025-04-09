@@ -1,0 +1,14 @@
+[
+  {
+    "niceType": "Visa",
+    "type": "visa"
+  },
+  {
+    "niceType": "MasterCard",
+    "type": "mastercard"
+  },
+  {
+    "niceType": "American Express",
+    "type": "american_express"
+  }
+]
