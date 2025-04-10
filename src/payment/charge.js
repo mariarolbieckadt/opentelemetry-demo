@@ -22,19 +22,29 @@ function random(arr) {
   return arr[index];
 }
 
-// Load supported cards from YAML file
+
 let supportedCards;
-try {
-  const cardsFile = fs.readFileSync("cards.json", "utf8");
-  supportedCards = JSON.parse(cardsFile);
-  console.log(supportedCards);
-} catch (e) {
-  console.error("Error loading supported cards:", e);
-  throw new Error("Payment request failed. Details:", e);
+
+function loadSupportedCards() {
+  try {
+    const cardsFile = fs.readFileSync("cards.json", "utf8");
+    supportedCards = JSON.parse(cardsFile);
+    console.log("Supported cards loaded successfully:", supportedCards);
+  } catch (e) {
+    console.error("Error loading supported cards:", e);
+    throw new Error("Payment request failed. Details:", e);
+  }
 }
+
+// Load supported cards at the start
+loadSupportedCards();
 
 module.exports.charge = async (request) => {
   const span = tracer.startSpan("charge");
+
+  if (!supportedCards) {
+    throw new Error("Supported cards not loaded.");
+  }
 
   await OpenFeature.setProviderAndWait(flagProvider);
 
