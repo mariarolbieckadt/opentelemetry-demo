@@ -23,7 +23,7 @@ function random(arr) {
   return arr[index];
 }
 
-module.exports.charge = async (request) => {
+module.exports.charge = async request => {
   const span = tracer.startSpan('charge');
 
   await OpenFeature.setProviderAndWait(flagProvider);
@@ -43,7 +43,7 @@ module.exports.charge = async (request) => {
   const {
     creditCardNumber: number,
     creditCardExpirationYear: year,
-    creditCardExpirationMonth: month,
+    creditCardExpirationMonth: month
   } = request.creditCard;
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -51,21 +51,20 @@ module.exports.charge = async (request) => {
   const transactionId = uuidv4();
 
   const cardValidation = valid.number(number);
-
-  const loyalty_level = random(LOYALTY_LEVEL);
-  span.setAttributes({
-    "app.payment.card_type": cardValidation.card.type,
-    "app.payment.card_valid": cardValidation.isValid,
-    "app.loyalty.level": loyalty_level,
-  });
-
-  if (!cardValidation.isValid) {
-    throw new Error("Credit card info is invalid.");
-  }
-
+  const cardValid = cardValidation.isValid;
   const cardType = cardValidation.card.type;
   const cardNiceType = cardValidation.card.niceType;
 
+  const loyalty_level = random(LOYALTY_LEVEL);
+  span.setAttributes({
+    "app.payment.card_type": cardType,
+    "app.payment.card_valid": cardValid,
+    "app.loyalty.level": loyalty_level,
+  });
+
+  if (!cardValid) {
+    throw new Error("Credit card info is invalid.");
+  }
 
   const supportedCards = await OpenFeature.getClient().getObjectValue("paymentSupportedCardsProblem", {} );
 
