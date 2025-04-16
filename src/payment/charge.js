@@ -1,20 +1,33 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
-const { context, propagation, trace, metrics } = require('@opentelemetry/api');
+const {
+  context,
+  propagation,
+  trace,
+  metrics,
+} = require("@opentelemetry/api");
 const valid = require("card-validator");
 const { v4: uuidv4 } = require("uuid");
-const fs = require("fs");
 
 const { OpenFeature } = require("@openfeature/server-sdk");
-const { FlagdProvider } = require("@openfeature/flagd-provider");
+const {
+  FlagdProvider,
+} = require("@openfeature/flagd-provider");
 const flagProvider = new FlagdProvider();
 
 const logger = require("./logger");
 const tracer = trace.getTracer("payment");
 const meter = metrics.getMeter("payment");
-const transactionsCounter = meter.createCounter("app.payment.transactions");
+const transactionsCounter = meter.createCounter(
+  "app.payment.transactions"
+);
 
-const LOYALTY_LEVEL = ["platinum", "gold", "silver", "bronze"];
+const LOYALTY_LEVEL = [
+  "platinum",
+  "gold",
+  "silver",
+  "bronze",
+];
 
 /** Return random element from given array */
 function random(arr) {
@@ -22,36 +35,16 @@ function random(arr) {
   return arr[index];
 }
 
-
-let supportedCards;
-
-function loadSupportedCards() {
-  try {
-    const cardsFile = fs.readFileSync("cards.json", "utf8");
-    supportedCards = JSON.parse(cardsFile);
-    console.log("Supported cards loaded successfully:", supportedCards);
-  } catch (e) {
-    console.error("Error loading supported cards:", e);
-    throw new Error("Payment request failed. Details:", e);
-  }
-}
-
-// Load supported cards at the start
-loadSupportedCards();
-
 module.exports.charge = async (request) => {
   const span = tracer.startSpan("charge");
 
-  if (!supportedCards) {
-    throw new Error("Supported cards not loaded.");
-  }
-
   await OpenFeature.setProviderAndWait(flagProvider);
 
-  const numberVariant = await OpenFeature.getClient().getNumberValue(
-    "paymentFailure",
-    0
-  );
+  const numberVariant =
+    await OpenFeature.getClient().getNumberValue(
+      "paymentFailure",
+      0
+    );
 
   if (numberVariant > 0) {
     // n% chance to fail with app.loyalty.level=gold
@@ -88,9 +81,21 @@ module.exports.charge = async (request) => {
     throw new Error("Credit card info is invalid.");
   }
 
-  if (!supportedCards.find((card) => card.type === cardValidation.card.type)) {
+  const supportedCards =
+    await OpenFeature.getClient().getObjectValue(
+      "paymentSupportedCardsProblem",
+      {}
+    );
+
+  console.log("Supported cards: " + supportedCards);
+
+  if (!supportedCards[cardValidation.card.type]) {
+    const supportedCardNames =
+      Object.values(supportedCards).join(", ");
+
     throw new Error(
-      `Sorry, we cannot process ${cardValidation.card.niceType} credit cards.`
+      `Sorry, we cannot process ${cardValidation.card.niceType} credit cards.
+      Only ${supportedCardNames} are supported.`
     );
   }
 
@@ -125,7 +130,9 @@ module.exports.charge = async (request) => {
     },
     "Transaction complete."
   );
-  transactionsCounter.add(1, { "app.payment.currency": currencyCode });
+  transactionsCounter.add(1, {
+    "app.payment.currency": currencyCode,
+  });
   span.end();
 
   return { transactionId };
