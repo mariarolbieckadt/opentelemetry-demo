@@ -1,7 +1,9 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
 const { context, propagation, trace, metrics } = require('@opentelemetry/api');
-const cardValidator = require('simple-card-validator');
+const valid = require("card-validator");
 const { v4: uuidv4 } = require('uuid');
 
 const { OpenFeature } = require('@openfeature/server-sdk');
@@ -26,7 +28,7 @@ module.exports.charge = async request => {
 
   await OpenFeature.setProviderAndWait(flagProvider);
 
-  const numberVariant =  await OpenFeature.getClient().getNumberValue("paymentFailure", 0);
+  const numberVariant = await OpenFeature.getClient().getNumberValue("paymentFailure", 0);
 
   if (numberVariant > 0) {
     // n% chance to fail with app.loyalty.level=gold
@@ -48,23 +50,30 @@ module.exports.charge = async request => {
   const lastFourDigits = number.substr(-4);
   const transactionId = uuidv4();
 
-  const card = cardValidator(number);
-  const { card_type: cardType, valid } = card.getCardDetails();
+  const cardValidation = valid.number(number);
+  const cardValid = cardValidation.isValid;
+  const cardType = cardValidation.card.type;
+  const cardNiceType = cardValidation.card.niceType;
 
   const loyalty_level = random(LOYALTY_LEVEL);
-
   span.setAttributes({
-    'app.payment.card_type': cardType,
-    'app.payment.card_valid': valid,
-    'app.loyalty.level': loyalty_level
+    "app.payment.card_type": cardType,
+    "app.payment.card_valid": cardValid,
+    "app.loyalty.level": loyalty_level,
   });
 
-  if (!valid) {
-    throw new Error('Credit card info is invalid.');
+  if (!cardValid) {
+    throw new Error("Credit card info is invalid.");
   }
 
-  if (!['visa', 'mastercard'].includes(cardType)) {
-    throw new Error(`Sorry, we cannot process ${cardType} credit cards. Only VISA or MasterCard is accepted.`);
+  const supportedCards = await OpenFeature.getClient().getObjectValue("paymentSupportedCardsProblem", {} );
+
+  if (!supportedCards[cardType]) {
+    const supportedCardNames = Object.values(supportedCards).join(" or ");
+
+    throw new Error(
+      `Sorry, we cannot process ${cardNiceType} credit cards. Only ${supportedCardNames} are accepted.`
+    );
   }
 
   if ((currentYear * 12 + currentMonth) > (year * 12 + month)) {
