@@ -87,8 +87,6 @@ module.exports.charge = async (request) => {
       {}
     );
 
-  console.log("Supported cards: " + supportedCards);
-
   if (!supportedCards[cardValidation.card.type]) {
     const supportedCardNames =
       Object.values(supportedCards).join(", ");
