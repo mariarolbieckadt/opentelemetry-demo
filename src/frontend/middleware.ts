@@ -13,17 +13,6 @@ if(!request.cookies.has('SESSIONID'))
 if(!request.cookies.has('USERID'))
     response.cookies.set('USERID', v4())
 
-
-// Set the USERID cookie if it is not set
-if (!request.cookies.has('USERID')) {
- const userId = v4();
- response.cookies.set('USERID', userId);
- console.log(`USERID set to ${userId}`);
-}
-
-console.log(`LALALAAL Middleware executed!!!!`);
-
-
 return response
 }
 
