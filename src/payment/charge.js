@@ -16,6 +16,7 @@ const meter = metrics.getMeter('payment');
 const transactionsCounter = meter.createCounter('app.payment.transactions');
 
 const LOYALTY_LEVEL = ['platinum', 'gold', 'silver', 'bronze'];
+const SUPPORTED_CARDS_DEFAULT = {"visa": "Visa", "mastercard": "MasterCard", "american-express": "American Express"};
 
 /** Return random element from given array */
 function random(arr) {
@@ -66,7 +67,7 @@ module.exports.charge = async request => {
     throw new Error("Credit card info is invalid.");
   }
 
-  const supportedCards = await OpenFeature.getClient().getObjectValue("paymentSupportedCardsProblem", {} );
+  const supportedCards = await OpenFeature.getClient().getObjectValue("paymentSupportedCardsProblem", SUPPORTED_CARDS_DEFAULT );
 
   if (!supportedCards[cardType]) {
     const supportedCardNames = Object.values(supportedCards).join(" or ");
