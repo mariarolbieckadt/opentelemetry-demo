@@ -303,7 +303,7 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 		attribute.String("app.product.id", req.Id),
 	)
 
-	log.Infof("[GetProduct] product.id=%qq", req.id)
+	log.Infof("[GetProduct] product.id=%qq", req.Id)
 
 	// GetProduct will fail on a specific product when feature flag is enabled
 	if p.checkProductFailure(ctx, req.Id) {
