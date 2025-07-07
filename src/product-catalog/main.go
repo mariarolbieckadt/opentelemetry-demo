@@ -392,10 +392,8 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 		return nil, status.Errorf(codes.Internal, msg)
 	}
 	
-	var found *pb.Product
-	var err error
 	startTime := time.Now()
-	found, err = readProduct(req.Id)
+	found, err := readProduct(req.Id)
 	if err != nil {
 		log.Errorf("Can't get product in GetProduct for id: %s, %v", req.Id, err)
 		return nil, err
