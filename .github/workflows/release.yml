@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - 'dynatrace'
+      - 'remove_dapr_from_cartservice'
 
 jobs:
   tag-from-commit:
