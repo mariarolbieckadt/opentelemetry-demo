@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics.Metrics;
 using System.Diagnostics;
 
-
 namespace cart.cartstore;
 
 public class ValkeyCartStore : ICartStore
@@ -23,10 +22,9 @@ public class ValkeyCartStore : ICartStore
     private volatile bool _isRedisConnectionOpened;
 
     private readonly object _locker = new();
-
     private readonly byte[] _emptyCartBytes;
     private readonly string _connectionString;
-    
+
     private static readonly ActivitySource CartActivitySource = new("OpenTelemetry.Demo.Cart");
     private static readonly Meter CartMeter = new Meter("OpenTelemetry.Demo.Cart");
     private static readonly Histogram<double> addItemHistogram = CartMeter.CreateHistogram(
@@ -43,8 +41,7 @@ public class ValkeyCartStore : ICartStore
         {
             HistogramBucketBoundaries = [ 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10 ]
         });
-    
-    private readonly ConfigurationOptions _redisConnectionOptions;    
+    private readonly ConfigurationOptions _redisConnectionOptions;
 
     public ValkeyCartStore(ILogger<ValkeyCartStore> logger, string valkeyAddress)
     {
@@ -52,7 +49,7 @@ public class ValkeyCartStore : ICartStore
         // Serialize empty cart into byte array.
         var cart = new Oteldemo.Cart();
         _emptyCartBytes = cart.ToByteArray();
-                _connectionString = $"{valkeyAddress},ssl=false,allowAdmin=true,abortConnect=false";
+        _connectionString = $"{valkeyAddress},ssl=false,allowAdmin=true,abortConnect=false";
 
         _redisConnectionOptions = ConfigurationOptions.Parse(_connectionString);
 
@@ -123,7 +120,7 @@ public class ValkeyCartStore : ICartStore
             _isRedisConnectionOpened = true;
         }
     }
-    
+
     public async Task AddItemAsync(string userId, string productId, int quantity)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -139,7 +136,7 @@ public class ValkeyCartStore : ICartStore
             var value = await db.HashGetAsync(userId, CartFieldName);
 
             Oteldemo.Cart cart;
-            if (value is null)
+            if (value.IsNull)
             {
                 cart = new Oteldemo.Cart
                 {
@@ -160,8 +157,9 @@ public class ValkeyCartStore : ICartStore
                     existingItem.Quantity += quantity;
                 }
             }
+
             await db.HashSetAsync(userId, new[]{ new HashEntry(CartFieldName, cart.ToByteArray()) });
-            await db.KeyExpireAsync(userId, TimeSpan.FromMinutes(60));            
+            await db.KeyExpireAsync(userId, TimeSpan.FromMinutes(60));
         }
         catch (Exception ex)
         {
@@ -181,6 +179,7 @@ public class ValkeyCartStore : ICartStore
         {
             EnsureRedisConnected();
             var db = _redis.GetDatabase();
+
             // Update the cache with empty cart for given user
             await db.HashSetAsync(userId, new[] { new HashEntry(CartFieldName, _emptyCartBytes) });
             await db.KeyExpireAsync(userId, TimeSpan.FromMinutes(60));
@@ -205,14 +204,13 @@ public class ValkeyCartStore : ICartStore
             // Access the cart from the cache
             var value = await db.HashGetAsync(userId, CartFieldName);
 
-            if (value is not null)
+            if (!value.IsNull)
             {
                 return Oteldemo.Cart.Parser.ParseFrom(value);
             }
 
-
             // We decided to return empty cart in cases when user wasn't in the cache before
-              return new Oteldemo.Cart();
+            return new Oteldemo.Cart();
         }
         catch (Exception ex)
         {
