@@ -106,29 +106,14 @@ services:
       - OTEL_SERVICE_NAME=cart
       - ASPNETCORE_URLS=http://*:${CART_PORT}
     depends_on:
-
+      valkey-cart:
+        condition: service_started
       otel-collector:
         condition: service_started
       flagd:
         condition: service_started
     logging: *logging
-  cart-dapr:
-    image: "daprio/daprd:edge"
-    container_name: cart-dapr
-    command: [ "./daprd",
-               "-app-id", "cart",
-               "-app-port", "${CART_PORT}",
-               "-placement-host-address", "dapr-placement:50006",
-               "-components-path", "/components", "-components-path", "/components",
-               "-config", "/configuration/config.yaml" ]
-    volumes:
-      - "./src/dapr/components/:/components"
-      - "./src/dapr/:/configuration"
-    depends_on:
-      - cart
-      - valkey-cart
-      - dapr-placement
-    network_mode: "service:cart"
+
 
   # Checkout service
   checkout:
@@ -728,15 +713,6 @@ services:
       - "${VALKEY_PORT}"
     logging: *logging
 
-  # ********************
-  # Dapr Components
-  # ********************
-  dapr-placement:
-    image: "daprio/dapr"
-    container_name: dapr-placement
-    command: [ "./placement", "-port", "50006" ]
-    ports:
-      - "50006:50006"
   # ********************
   # Telemetry Components
   # ********************

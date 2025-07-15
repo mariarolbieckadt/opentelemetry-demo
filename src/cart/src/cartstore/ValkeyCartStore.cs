@@ -4,22 +4,29 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Grpc.Core;
+using StackExchange.Redis;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics.Metrics;
 using System.Diagnostics;
-using Dapr.Client;
-using Dapr.Common.Exceptions;
-using Dapr;
+
 
 namespace cart.cartstore;
 
-public class DaprStateManagementCartStore : ICartStore
+public class ValkeyCartStore : ICartStore
 {
     private readonly ILogger _logger;
-    private readonly string _daprStoreName;
-    private DaprClient _client;
+    private const string CartFieldName = "cart";
+    private const int RedisRetryNumber = 30;
+
+    private volatile ConnectionMultiplexer _redis;
+    private volatile bool _isRedisConnectionOpened;
+
+    private readonly object _locker = new();
+
     private readonly byte[] _emptyCartBytes;
+    private readonly string _connectionString;
+    
     private static readonly ActivitySource CartActivitySource = new("OpenTelemetry.Demo.Cart");
     private static readonly Meter CartMeter = new Meter("OpenTelemetry.Demo.Cart");
     private static readonly Histogram<double> addItemHistogram = CartMeter.CreateHistogram(
@@ -36,22 +43,87 @@ public class DaprStateManagementCartStore : ICartStore
         {
             HistogramBucketBoundaries = [ 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10 ]
         });
+    
+    private readonly ConfigurationOptions _redisConnectionOptions;    
 
-    public DaprStateManagementCartStore(ILogger<DaprStateManagementCartStore> logger, string daprStoreName)
+    public ValkeyCartStore(ILogger<ValkeyCartStore> logger, string valkeyAddress)
     {
         _logger = logger;
-        _daprStoreName = daprStoreName;
         // Serialize empty cart into byte array.
         var cart = new Oteldemo.Cart();
         _emptyCartBytes = cart.ToByteArray();
+                _connectionString = $"{valkeyAddress},ssl=false,allowAdmin=true,abortConnect=false";
+
+        _redisConnectionOptions = ConfigurationOptions.Parse(_connectionString);
+
+        // Try to reconnect multiple times if the first retry fails.
+        _redisConnectionOptions.ConnectRetry = RedisRetryNumber;
+        _redisConnectionOptions.ReconnectRetryPolicy = new ExponentialRetry(1000);
+
+        _redisConnectionOptions.KeepAlive = 180;
+    }
+
+    public ConnectionMultiplexer GetConnection()
+    {
+        EnsureRedisConnected();
+        return _redis;
     }
 
     public void Initialize()
     {
-        if (_client is null)
-            _client = new DaprClientBuilder().Build();
+        EnsureRedisConnected();
     }
 
+    private void EnsureRedisConnected()
+    {
+        if (_isRedisConnectionOpened)
+        {
+            return;
+        }
+
+        // Connection is closed or failed - open a new one but only at the first thread
+        lock (_locker)
+        {
+            if (_isRedisConnectionOpened)
+            {
+                return;
+            }
+
+            _logger.LogDebug("Connecting to Redis: {_connectionString}", _connectionString);
+            _redis = ConnectionMultiplexer.Connect(_redisConnectionOptions);
+
+            if (_redis == null || !_redis.IsConnected)
+            {
+                _logger.LogError("Wasn't able to connect to redis");
+
+                // We weren't able to connect to Redis despite some retries with exponential backoff.
+                throw new ApplicationException("Wasn't able to connect to redis");
+            }
+
+            _logger.LogInformation("Successfully connected to Redis");
+            var cache = _redis.GetDatabase();
+
+            _logger.LogDebug("Performing small test");
+            cache.StringSet("cart", "OK" );
+            object res = cache.StringGet("cart");
+            _logger.LogDebug("Small test result: {res}", res);
+
+            _redis.InternalError += (_, e) => { Console.WriteLine(e.Exception); };
+            _redis.ConnectionRestored += (_, _) =>
+            {
+                _isRedisConnectionOpened = true;
+                _logger.LogInformation("Connection to redis was restored successfully.");
+            };
+            _redis.ConnectionFailed += (_, _) =>
+            {
+                _logger.LogInformation("Connection failed. Disposing the object");
+                _isRedisConnectionOpened = false;
+            };
+
+            _isRedisConnectionOpened = true;
+        }
+    }
+    
     public async Task AddItemAsync(string userId, string productId, int quantity)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -59,8 +131,12 @@ public class DaprStateManagementCartStore : ICartStore
 
         try
         {
+            EnsureRedisConnected();
 
-            var value = await _client.GetStateAsync<byte[]>(_daprStoreName, userId.ToString());
+            var db = _redis.GetDatabase();
+
+            // Access the cart from the cache
+            var value = await db.HashGetAsync(userId, CartFieldName);
 
             Oteldemo.Cart cart;
             if (value is null)
@@ -84,20 +160,8 @@ public class DaprStateManagementCartStore : ICartStore
                     existingItem.Quantity += quantity;
                 }
             }
-            await _client.SaveStateAsync(_daprStoreName, userId.ToString(), cart.ToByteArray());
-        }
-        catch (DaprException daprEx)
-        {
-            if (daprEx.TryGetExtendedErrorInfo(out DaprExtendedErrorInfo errorInfo))
-            {
-
-                 _logger.LogInformation("Dapr error: code: {errorInfo.Code} , message: {errorInfo.Message}", errorInfo.Code,errorInfo.Message);
-
-
-
-                throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Can't access cart storage. {daprEx}"));
-
-            }
+            await db.HashSetAsync(userId, new[]{ new HashEntry(CartFieldName, cart.ToByteArray()) });
+            await db.KeyExpireAsync(userId, TimeSpan.FromMinutes(60));            
         }
         catch (Exception ex)
         {
@@ -115,20 +179,11 @@ public class DaprStateManagementCartStore : ICartStore
 
         try
         {
-            await _client.SaveStateAsync(_daprStoreName, userId.ToString(), _emptyCartBytes);
-        }
-        catch (DaprException daprEx)
-        {
-            if (daprEx.TryGetExtendedErrorInfo(out DaprExtendedErrorInfo errorInfo))
-            {
-
-                 _logger.LogInformation("Dapr error: code: {errorInfo.Code} , message: {errorInfo.Message}", errorInfo.Code,errorInfo.Message);
-
-
-
-                throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Can't access cart storage. {daprEx}"));
-
-            }
+            EnsureRedisConnected();
+            var db = _redis.GetDatabase();
+            // Update the cache with empty cart for given user
+            await db.HashSetAsync(userId, new[] { new HashEntry(CartFieldName, _emptyCartBytes) });
+            await db.KeyExpireAsync(userId, TimeSpan.FromMinutes(60));
         }
         catch (Exception ex)
         {
@@ -143,9 +198,12 @@ public class DaprStateManagementCartStore : ICartStore
 
         try
         {
+            EnsureRedisConnected();
+
+            var db = _redis.GetDatabase();
 
             // Access the cart from the cache
-            var value = await _client.GetStateAsync<byte[]>(_daprStoreName, userId.ToString());
+            var value = await db.HashGetAsync(userId, CartFieldName);
 
             if (value is not null)
             {
@@ -155,16 +213,6 @@ public class DaprStateManagementCartStore : ICartStore
 
             // We decided to return empty cart in cases when user wasn't in the cache before
               return new Oteldemo.Cart();
-        }
-        catch (DaprException daprEx)
-        {
-            if (daprEx.TryGetExtendedErrorInfo(out DaprExtendedErrorInfo errorInfo))
-            {
-
-                 _logger.LogInformation("Dapr error: code: {errorInfo.Code} , message: {errorInfo.Message}", errorInfo.Code,errorInfo.Message);
-             }
-                throw new RpcException(new Status(StatusCode.FailedPrecondition, $"Can't access cart storage with Dapr. {daprEx}"));
-
         }
         catch (Exception ex)
         {
@@ -176,8 +224,17 @@ public class DaprStateManagementCartStore : ICartStore
         }
     }
 
-    public async Task<bool> PingAsync()
+    public bool Ping()
     {
-        return await _client.CheckOutboundHealthAsync();
+        try
+        {
+            var cache = _redis.GetDatabase();
+            var res = cache.Ping();
+            return res != TimeSpan.Zero;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }
