@@ -108,6 +108,20 @@ class WebsiteBrowserUser(PlaywrightUser):
     weight = 2
     headless = True  # to use a headless browser, without a GUI
 
+    async def on_start(self):
+        self.context = await self.browser.new_context(
+            viewport={"width": 1280, "height": 720},
+            user_agent="load-test-agent",
+            ignore_https_errors=True,
+            record_video_dir=None,
+            record_har_path=None,
+            bypass_csp=True,
+            java_script_enabled=True,
+            accept_downloads=False,
+            args=['--disable-dev-shm-usage', '--disable-gpu', '--no-sandbox', '--disable-software-rasterizer', '--disable-extensions', '--disable-background-networking', '--disable-default-apps', '--disable-sync', '--metrics-recording-only', '--mute-audio', '--no-first-run', '--safebrowsing-disable-auto-update', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-device-discovery-notifications', '--disable-breakpad', '--disable-component-extensions-with-background-pages', '--disable-client-side-phishing-detection', '--disable-popup-blocking', '--disable-prompt-on-repost', '--disable-hang-monitor', '--disable-translate', '--disable-features=site-per-process,TranslateUI', '--disable-sync-types', '--disable-domain-reliability', '--disable-component-update', '--disable-print-preview', '--disable-speech-api', '--disable-web-security', '--disable-logging', '--log-level=3', '--no-default-browser-check', '--no-service-autorun', '--noerrdialogs', '--password-store=basic', '--use-mock-keychain', '--disable-notifications', '--disable-cache', '--disk-cache-size=1', '--media-cache-size=1']
+        )
+
+
     @task(2)
     @pw
     async def open_cart_page_and_change_currency(self, page: PageWithRetry):
