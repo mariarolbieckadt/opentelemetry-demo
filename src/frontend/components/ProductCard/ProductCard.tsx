@@ -6,13 +6,16 @@ import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
 import * as S from './ProductCard.styled';
 import { useState, useEffect } from 'react';
-import { useNumberFlagValue } from '@openfeature/react-sdk';
+import { useNumberFlagValue, useBooleanFlagValue } from '@openfeature/react-sdk';
 
 interface IProps {
   product: Product;
 }
 
-async function getImageWithHeaders(requestInfo: Request) {
+async function getImageWithHeaders(requestInfo: Request, delayMs: number) {
+  if (delayMs > 0) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
   const res = await fetch(requestInfo);
   return await res.blob();
 }
@@ -30,22 +33,36 @@ const ProductCard = ({
   },
 }: IProps) => {
   const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
+  const largeImage = useBooleanFlagValue('largeImage', false);
   const [imageSrc, setImageSrc] = useState<string>('');
 
   useEffect(() => {
+    if (largeImage) {
+      console.warn(`Flag 'largeImage' is enabled. Using BMP format for image: ${picture}`);
+    }
+    if (imageSlowLoad !== 0) {
+      console.warn(`Flag 'imageSlowLoad' is set to ${imageSlowLoad}ms. Simulating delayed image load.`);
+    }
+
     const headers = new Headers();
-    headers.append('x-envoy-fault-delay-request', imageSlowLoad.toString());
-    headers.append('Cache-Control', 'no-cache')
+    headers.append('Cache-Control', 'no-cache');
+
     const requestInit = {
-      method: "GET",
-      headers: headers
+      method: 'GET',
+      headers: headers,
     };
-    const image_url ='/images/products/' + picture
-    const requestInfo = new Request(image_url, requestInit);
-    getImageWithHeaders(requestInfo).then(blob => {
+
+    const imagePath = largeImage
+      ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
+      : '/images/products/'
+
+    const imageUrl = imagePath + picture;
+    const requestInfo = new Request(imageUrl, requestInit);
+
+    getImageWithHeaders(requestInfo, imageSlowLoad).then(blob => {
       setImageSrc(URL.createObjectURL(blob));
     });
-  }, [imageSlowLoad, picture]);
+  }, [imageSlowLoad, largeImage, picture]);
 
   return (
     <S.Link href={`/product/${id}`}>
