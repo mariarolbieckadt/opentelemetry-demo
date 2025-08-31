@@ -37,8 +37,13 @@ const ProductCard = ({
   const [imageSrc, setImageSrc] = useState<string>('');
 
   useEffect(() => {
+
+    const imagePath = largeImage
+      ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
+      : '/images/products/'
+
     if (largeImage) {
-      console.warn(`Flag 'largeImage' is enabled. Using BMP format for image: ${picture}`);
+      console.warn(`Flag 'largeImage' is enabled. Using S3 location for image: ${imagePath}`);
     }
     if (imageSlowLoad !== 0) {
       console.warn(`Flag 'imageSlowLoad' is set to ${imageSlowLoad}ms. Simulating delayed image load.`);
@@ -52,9 +57,7 @@ const ProductCard = ({
       headers: headers,
     };
 
-    const imagePath = largeImage
-      ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
-      : '/images/products/'
+
 
     const imageUrl = imagePath + picture;
     const requestInfo = new Request(imageUrl, requestInit);
