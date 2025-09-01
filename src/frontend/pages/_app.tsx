@@ -45,7 +45,7 @@ if (typeof window !== 'undefined') {
       OpenFeature.setProvider(
         new FlagdWebProvider({
           host: window.location.hostname,
-          pathPrefix: 'feature',
+          pathPrefix: 'flagservice',
           port: port,
           tls: useTLS,
           maxRetries: 3,
