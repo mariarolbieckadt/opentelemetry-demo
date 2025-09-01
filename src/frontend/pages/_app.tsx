@@ -42,7 +42,6 @@ if (typeof window !== 'undefined') {
           host: 'flagd', 
           port: 8013,                  
           tls: false,                    
-          protocol: 'grpc',             
           maxRetries: 3,
           maxDelay: 10000,
         })
