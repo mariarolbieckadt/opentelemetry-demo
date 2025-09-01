@@ -3,7 +3,7 @@ import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
 import * as S from './ProductCard.styled';
 import { useState, useEffect } from 'react';
-import { useNumberFlagValue, useBooleanFlagValue } from '@openfeature/react-sdk';
+import { useNumberFlagValue } from '@openfeature/react-sdk';
 
 interface IProps {
   product: Product;
