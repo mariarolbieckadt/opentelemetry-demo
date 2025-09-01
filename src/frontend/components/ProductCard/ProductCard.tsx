@@ -1,6 +1,3 @@
-// Copyright The OpenTelemetry Authors
-// SPDX-License-Identifier: Apache-2.0
-
 import { CypressFields } from '../../utils/Cypress';
 import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
@@ -12,10 +9,7 @@ interface IProps {
   product: Product;
 }
 
-async function getImageWithHeaders(requestInfo: Request, delayMs: number) {
-  if (delayMs > 0) {
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-  }
+async function getImageWithHeaders(requestInfo: Request) {
   const res = await fetch(requestInfo);
   return await res.blob();
 }
@@ -37,34 +31,38 @@ const ProductCard = ({
   const [imageSrc, setImageSrc] = useState<string>('');
 
   useEffect(() => {
+    console.log(`Feature Flags - imageSlowLoad: ${imageSlowLoad}, largeImage: ${largeImage}`);
 
-    const imagePath = largeImage
-      ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
-      : '/images/products/'
+    const loadImage = async () => {
+      if (imageSlowLoad > 0) {
+        console.log(`Sleeping for ${imageSlowLoad}ms due to imageSlowLoad flag`);
+        await new Promise(resolve => setTimeout(resolve, imageSlowLoad));
+      }
 
-    if (largeImage) {
-      console.warn(`Flag 'largeImage' is enabled. Using S3 location for image: ${imagePath}`);
-    }
-    if (imageSlowLoad !== 0) {
-      console.warn(`Flag 'imageSlowLoad' is set to ${imageSlowLoad}ms. Simulating delayed image load.`);
-    }
+      const headers = new Headers();
+      headers.append('Cache-Control', 'no-cache');
 
-    const headers = new Headers();
-    headers.append('Cache-Control', 'no-cache');
+      const imagePath = largeImage
+        ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
+        : '/images/products/';
+      const imageUrl = imagePath + picture;
 
-    const requestInit = {
-      method: 'GET',
-      headers: headers,
+      console.log(`ImageURL: ${imageUrl}`);
+
+      const requestInfo = new Request(imageUrl, {
+        method: 'GET',
+        headers: headers,
+      });
+
+      try {
+        const blob = await getImageWithHeaders(requestInfo);
+        setImageSrc(URL.createObjectURL(blob));
+      } catch (error) {
+        console.error('Failed to load image:', error);
+      }
     };
 
-
-
-    const imageUrl = imagePath + picture;
-    const requestInfo = new Request(imageUrl, requestInit);
-
-    getImageWithHeaders(requestInfo, imageSlowLoad).then(blob => {
-      setImageSrc(URL.createObjectURL(blob));
-    });
+    loadImage();
   }, [imageSlowLoad, largeImage, picture]);
 
   return (
