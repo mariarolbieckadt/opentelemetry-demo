@@ -27,7 +27,8 @@ const ProductCard = ({
   },
 }: IProps) => {
   const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
-  const largeImage = useBooleanFlagValue('largeImage', false);
+  //const largeImage = useBooleanFlagValue('largeImage', false);
+  const largeImage = true;
   const [imageSrc, setImageSrc] = useState<string>('');
 
   useEffect(() => {
