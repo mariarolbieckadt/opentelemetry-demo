@@ -1,9 +1,12 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
 import { CypressFields } from '../../utils/Cypress';
 import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
 import * as S from './ProductCard.styled';
 import { useState, useEffect } from 'react';
-import { useNumberFlagValue } from '@openfeature/react-sdk';
+import { useNumberFlagValue, useBooleanFlagValue } from '@openfeature/react-sdk';
 
 interface IProps {
   product: Product;
@@ -27,44 +30,26 @@ const ProductCard = ({
   },
 }: IProps) => {
   const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
-  //const largeImage = useBooleanFlagValue('largeImage', false);
-  const largeImage = true;
+  const largeImage = useBooleanFlagValue('largeImage', false);
   const [imageSrc, setImageSrc] = useState<string>('');
 
+  console.log('Feature Flag - imageSlowLoad:', imageSlowLoad);
+  console.log('Feature Flag - largeImage:', largeImage);
+
   useEffect(() => {
-    console.log(`Feature Flags - imageSlowLoad: ${imageSlowLoad}, largeImage: ${largeImage}`);
-
-    const loadImage = async () => {
-      if (imageSlowLoad > 0) {
-        console.log(`Sleeping for ${imageSlowLoad}ms due to imageSlowLoad flag`);
-        await new Promise(resolve => setTimeout(resolve, imageSlowLoad));
-      }
-
-      const headers = new Headers();
-      headers.append('Cache-Control', 'no-cache');
-
-      const imagePath = largeImage
-        ? 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key='
-        : '/images/products/';
-      const imageUrl = imagePath + picture;
-
-      console.log(`ImageURL: ${imageUrl}`);
-
-      const requestInfo = new Request(imageUrl, {
-        method: 'GET',
-        headers: headers,
-      });
-
-      try {
-        const blob = await getImageWithHeaders(requestInfo);
-        setImageSrc(URL.createObjectURL(blob));
-      } catch (error) {
-        console.error('Failed to load image:', error);
-      }
+    const headers = new Headers();
+    headers.append('x-envoy-fault-delay-request', imageSlowLoad.toString());
+    headers.append('Cache-Control', 'no-cache')
+    const requestInit = {
+      method: "GET",
+      headers: headers
     };
-
-    loadImage();
-  }, [imageSlowLoad, largeImage, picture]);
+    const image_url = '/images/products/' + picture
+    const requestInfo = new Request(image_url, requestInit);
+    getImageWithHeaders(requestInfo).then(blob => {
+      setImageSrc(URL.createObjectURL(blob));
+    });
+  }, [imageSlowLoad, picture]);
 
   return (
     <S.Link href={`/product/${id}`}>
