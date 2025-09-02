@@ -6,7 +6,7 @@ import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
 import * as S from './ProductCard.styled';
 import { useState, useEffect } from 'react';
-import { useNumberFlagValue, useBooleanFlagValue } from '@openfeature/react-sdk';
+import { useNumberFlagValue } from '@openfeature/react-sdk';
 
 interface IProps {
   product: Product;
@@ -30,11 +30,9 @@ const ProductCard = ({
   },
 }: IProps) => {
   const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
-  const largeImage = useBooleanFlagValue('largeImage', false);
   const [imageSrc, setImageSrc] = useState<string>('');
 
   console.log('Feature Flag - imageSlowLoad:', imageSlowLoad);
-  console.log('Feature Flag - largeImage:', largeImage);
 
   useEffect(() => {
     const headers = new Headers();
@@ -44,7 +42,7 @@ const ProductCard = ({
       method: "GET",
       headers: headers
     };
-    const image_url = '/images/products/' + picture
+    const image_url ='/images/products/' + picture
     const requestInfo = new Request(image_url, requestInit);
     getImageWithHeaders(requestInfo).then(blob => {
       setImageSrc(URL.createObjectURL(blob));
