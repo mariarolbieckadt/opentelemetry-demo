@@ -24,7 +24,6 @@ declare global {
   }
 }
 
-
 if (typeof window !== 'undefined') {
   FrontendTracer();
   if (window.location) {
@@ -33,15 +32,22 @@ if (typeof window !== 'undefined') {
     // Set context prior to provider init to avoid multiple http calls
     OpenFeature.setContext({ targetingKey: session.userId, ...session }).then(() => {
       /**
-       * Connect directly to the flagd service using gRPC.
-       * Replace 'flagd.yourdomain.com' with the actual gRPC endpoint.
+       * We connect to flagd through the envoy proxy, straight from the browser,
+       * for this we need to know the current hostname and port.
        */
+
+      const useTLS = window.location.protocol === 'https:';
+      let port = useTLS ? 443 : 80;
+      if (window.location.port) {
+          port = parseInt(window.location.port, 10);
+      }
 
       OpenFeature.setProvider(
         new FlagdWebProvider({
-          host: 'flagd', 
-          port: 8013,                  
-          tls: false,                    
+          host: window.location.hostname,
+          pathPrefix: 'flagservice',
+          port: port,
+          tls: useTLS,
           maxRetries: 3,
           maxDelay: 10000,
         })
@@ -49,7 +55,6 @@ if (typeof window !== 'undefined') {
     });
   }
 }
-
 
 const queryClient = new QueryClient();
 
