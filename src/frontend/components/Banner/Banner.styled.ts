@@ -15,9 +15,7 @@ export const Banner = styled.div`
   }
 `;
 
-export const BannerImg = styled.img.attrs({
-  src: 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key=Banner.png',
-})`
+export const BannerImg = styled.img`
   width: 100%;
   height: auto;
 `;
