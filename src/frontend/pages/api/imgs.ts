@@ -9,8 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images' +
       `?key=${encodeURIComponent(key)}`;
 
-    // Server-side fetch: With OneAgent on your frontend service,
-    // Dynatrace will auto-propagate W3C trace context on this outgoing call.
     const gwRes = await fetch(gwUrl, { method: 'GET' });
 
     if (!gwRes.ok) {
@@ -20,10 +18,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const contentType = gwRes.headers.get('content-type') ?? 'application/octet-stream';
     const buf = Buffer.from(await gwRes.arrayBuffer());
     res.setHeader('Content-Type', contentType);
-    // Optional caching
     res.setHeader('Cache-Control', 'public, max-age=300');
     return res.status(200).send(buf);
-  } catch (err: any) {
-    return res.status(500).send(`Proxy error: ${err?.message ?? err}`);
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
+    return res.status(500).send(`Proxy error: ${message}`);
   }
 }
