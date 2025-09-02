@@ -12,7 +12,7 @@ const Banner = () => {
     const fetchImage = async () => {
       try {
 
-        const response = await fetch('/api/imgs?key=Banner.png');
+        const response = await fetch('/api/images?key=Banner.png');
 
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
