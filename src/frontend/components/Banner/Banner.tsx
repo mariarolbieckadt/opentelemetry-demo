@@ -11,9 +11,9 @@ const Banner = () => {
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        const response = await fetch(
-          'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key=Banner.png'
-        );
+
+        const response = await fetch('/api/imgs?key=Banner.png');
+
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setImageSrc(url);
