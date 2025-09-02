@@ -16,7 +16,7 @@ export const Banner = styled.div`
 `;
 
 export const BannerImg = styled.img.attrs({
-  src: '/images/Banner.png',
+  src: 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images?key=Banner.png',
 })`
   width: 100%;
   height: auto;
