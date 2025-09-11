@@ -42,12 +42,12 @@ const ProductCard = ({
       method: "GET",
       headers: headers
     };
-    const image_url ='/images/products/' + picture
+    const image_url ='/images/products/' + id
     const requestInfo = new Request(image_url, requestInit);
     getImageWithHeaders(requestInfo).then(blob => {
       setImageSrc(URL.createObjectURL(blob));
     });
-  }, [imageSlowLoad, picture]);
+  }, [imageSlowLoad, id]);
 
   return (
     <S.Link href={`/product/${id}`}>
