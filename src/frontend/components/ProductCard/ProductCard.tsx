@@ -20,7 +20,6 @@ async function getImageWithHeaders(requestInfo: Request) {
 const ProductCard = ({
   product: {
     id,
-    picture,
     name,
     priceUsd = {
       currencyCode: 'USD',
