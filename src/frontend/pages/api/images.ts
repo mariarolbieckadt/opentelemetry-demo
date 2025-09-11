@@ -11,6 +11,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images' +
       `?productId=${encodeURIComponent(productId)}`;
 
+    console.log('Fetching image from Lambda URL:', lambdaUrl);
+
     const lambdaRes = await fetch(lambdaUrl, { method: 'GET' });
 
     if (!lambdaRes.ok) {
