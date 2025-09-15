@@ -209,6 +209,17 @@ if browser_traffic_enabled:
                 await page.wait_for_timeout(2000)  # giving the browser time to export the traces
             except:
                 pass
+        
+        @task
+        @pw
+        async def view_product_page(self, page: PageWithRetry):
+            await page.route('**/*', add_baggage_header)
+            product = random.choice([
+                "0PUK6V6EV0","1YMWWN1N4O","2ZYFJ3GM2N","66VCHSJNUP"
+            ])
+            await page.goto(f"/product/{product}", wait_until="domcontentloaded")
+            await page.wait_for_timeout(7000)
+            
 
 
 async def add_baggage_header(route: Route, request: Request):
