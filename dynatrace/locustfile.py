@@ -110,7 +110,7 @@ class WebsiteBrowserUser(PlaywrightUser):
     weight = 2
     headless = True  # to use a headless browser, without a GUI
 
-    @task(2)
+    @task(1)
     @pw
     async def open_cart_page_and_change_currency(self, page: PageWithRetry):
         try:
@@ -132,7 +132,7 @@ class WebsiteBrowserUser(PlaywrightUser):
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
 
-    @task(2)
+    @task(1)
     @pw
     async def add_product_to_cart(self, page: PageWithRetry):
         try:
@@ -161,12 +161,12 @@ class WebsiteBrowserUser(PlaywrightUser):
             # Click the go to shopping cart button
             await page.click('button:has-text("Go to Shopping Cart")')
 
-            await page.wait_for_timeout(2000)  # giving the browser time to export the traces
+            await page.wait_for_timeout(8000)  # giving the browser time to export the traces
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
 
-    @task(4)
+    @task(3)
     @pw
     async def add_product_to_cart_and_checkout(self, page: PageWithRetry):
         try:
@@ -212,7 +212,41 @@ class WebsiteBrowserUser(PlaywrightUser):
 
             # Complete the order
             await page.click('button:has-text("Place Order")')
-            await page.wait_for_timeout(2000)  # giving the browser time to export the traces
+            await page.wait_for_timeout(8000)  # giving the browser time to export the traces
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            raise RescheduleTask(e)
+        
+    @task(1)
+    @pw
+    async def add_product_to_cart(self, page: PageWithRetry):
+        try:
+            page.on("console", lambda msg: print(msg.text))
+            await page.route('**/*', add_baggage_header)
+            await page.goto("/", wait_until="domcontentloaded")
+
+            # Add 1-4 products to the cart
+            for i in range(random.choice([1, 2, 3, 4])):
+                # Get a random product link and click on it
+                product_id = random.choice(products)
+                await page.click(f"a[href='/product/{product_id}']")
+
+                # Add a random number of products to the cart
+                product_count = random.choice([1, 2, 3, 4, 5, 10])
+                await page.select_option('select[data-cy="product-quantity"]', value=str(product_count))
+
+                # add the product to our cart
+                await page.click('button:has-text("Add To Cart")')
+
+                # Continue Shopping
+                await page.click('button:has-text("Continue Shopping")')
+
+            # Open the Shopping cart flyout
+            await page.click('a[data-cy="cart-icon"]')
+            # Click the go to shopping cart button
+            await page.click('button:has-text("Go to Shopping Cart")')
+
+            await page.wait_for_timeout(8000)  # giving the browser time to export the traces
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
@@ -257,7 +291,7 @@ class WebsiteBrowserUser(PlaywrightUser):
 
                     # Works for SPA route changes and full navigations
                     try:
-                        await page.wait_for_url("**/product/**", timeout=5000)
+                        await page.wait_for_url("**/product/**", timeout=8000)
                         on_product = True
                     except Exception:
                         on_product = False  # e.g., modal on "/"
@@ -274,27 +308,27 @@ class WebsiteBrowserUser(PlaywrightUser):
 
                 # Some UIs show a "Continue Shopping" button; handle both cases
                 try:
-                    await page.click('button:has-text("Continue Shopping")', timeout=3000)
+                    await page.click('button:has-text("Continue Shopping")', timeout=8000)
                 except Exception:
                     pass
 
                 # Open cart and navigate to full cart page (optional but useful)
                 try:
-                    await page.click('a[data-cy="cart-icon"]', timeout=3000)
+                    await page.click('a[data-cy="cart-icon"]', timeout=8000)
                     try:
-                        with page.expect_navigation(timeout=5000):
-                            await page.click('button:has-text("Go to Shopping Cart")', timeout=3000)
+                        with page.expect_navigation(timeout=8000):
+                            await page.click('button:has-text("Go to Shopping Cart")', timeout=8000)
                     except Exception:
                         # SPA route change fallback
                         try:
-                            await page.wait_for_url("**/cart**", timeout=3000)
+                            await page.wait_for_url("**/cart**", timeout=8000)
                         except Exception:
                             pass
                 except Exception:
                     pass
 
                 # Allow time for RUM beacons (LCP/INP) to flush
-                await page.wait_for_timeout(7000)
+                await page.wait_for_timeout(8000)
 
                 # Optional: log final URL for debugging
                 print("Final URL:", page.url, "on_product:", on_product)
@@ -304,7 +338,7 @@ class WebsiteBrowserUser(PlaywrightUser):
                 # Reschedule to keep the user alive even if a selector fails intermittently
                 raise RescheduleTask(e)        
 
-        @task
+        @task(2)
         @pw
         async def view_product_page(self, page: PageWithRetry):
             await page.route('**/*', add_baggage_header)
@@ -312,7 +346,7 @@ class WebsiteBrowserUser(PlaywrightUser):
                 "0PUK6V6EV0","1YMWWN1N4O","2ZYFJ3GM2N","66VCHSJNUP"
             ])
             await page.goto(f"/product/{product}", wait_until="domcontentloaded")
-            await page.wait_for_timeout(7000)            
+            await page.wait_for_timeout(8000)            
 
 
 async def add_baggage_header(route: Route, request: Request):
