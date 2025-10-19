@@ -12,10 +12,8 @@ interface IProps {
   product: Product;
 }
 
-async function getImageWithHeaders(requestInfo: Request) {
-  const res = await fetch(requestInfo);
-  return await res.blob();
-}
+const IMAGE_API_BASE = 'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging';
+const SCREEN = '860x600';
 
 const ProductCard = ({
   product: {
@@ -30,28 +28,49 @@ const ProductCard = ({
 }: IProps) => {
   const imageSlowLoad = useNumberFlagValue('imageSlowLoad', 0);
   const [imageSrc, setImageSrc] = useState<string>('');
-
-  console.log('Feature Flag - imageSlowLoad:', imageSlowLoad);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const headers = new Headers();
-    headers.append('x-envoy-fault-delay-request', imageSlowLoad.toString());
-    headers.append('Cache-Control', 'no-cache');
-    const requestInit = {
-      method: 'GET',
-      headers: headers,
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setError(null);
+
+        const url = new URL('/images/presign', IMAGE_API_BASE);
+        url.searchParams.set('productId', id);
+        url.searchParams.set('screen', SCREEN);
+
+        const headers = new Headers();
+        headers.append('x-envoy-fault-delay-request', imageSlowLoad.toString());
+        headers.append('Cache-Control', 'no-cache');
+
+        const res = await fetch(url.toString(), { method: 'GET', headers });
+        if (!res.ok) throw new Error(`Presign failed: ${res.status}`);
+
+        const data = await res.json();
+        if (!data?.url) throw new Error('No presigned URL in response');
+
+        if (!cancelled) setImageSrc(data.url); // direct S3 presigned URL
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Image load error');
+          setImageSrc(''); // optional: set to a local placeholder here
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
     };
-    const image_url = `/api/images/${id}`;
-    const requestInfo = new Request(image_url, requestInit);
-    getImageWithHeaders(requestInfo).then(blob => {
-      setImageSrc(URL.createObjectURL(blob));
-    });
-  }, [imageSlowLoad, id]);
+  }, [id, imageSlowLoad]);
 
   return (
     <S.Link href={`/product/${id}`}>
       <S.ProductCard data-cy={CypressFields.ProductCard}>
-        <S.Image $src={imageSrc} />
+        {/* If S.Image is a styled <img>, use `src={imageSrc}` instead of `$src` */}
+        <S.Image $src={imageSrc} alt={name} data-error={error || undefined} />
         <div>
           <S.ProductName>{name}</S.ProductName>
           <S.ProductPrice>
@@ -62,5 +81,6 @@ const ProductCard = ({
     </S.Link>
   );
 };
+
 
 export default ProductCard;
