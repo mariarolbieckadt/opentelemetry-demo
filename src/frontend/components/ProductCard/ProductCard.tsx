@@ -56,7 +56,7 @@ const ProductCard = ({
         setError(null);
 
         // Because base includes /images, DO NOT start with "/"
-        const endpoint = new URL('presign', IMAGE_API_BASE);
+        const endpoint = new URL(IMAGE_API_BASE);
         endpoint.searchParams.set('productId', id);
         endpoint.searchParams.set('screen', SCREEN);
 
