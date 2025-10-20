@@ -1,19 +1,12 @@
 import { CypressFields } from '../../utils/Cypress';
+import { Product } from '../../protos/demo';
 import ProductPrice from '../ProductPrice';
 import * as S from './ProductCard.styled';
 import { useState, useEffect } from 'react';
 import { useNumberFlagValue } from '@openfeature/react-sdk';
+
 interface IProps {
-  product: {
-    id: string;
-    picture?: string; // not used; Lambda looks it up
-    name: string;
-    priceUsd?: {
-      currencyCode: string;
-      units: number;
-      nanos: number;
-    };
-  };
+  product: Product;
 }
 
 interface PresignResponse {
@@ -31,7 +24,6 @@ function isPresignResponse(x: unknown): x is PresignResponse {
   return typeof rec.url === 'string';
 }
 
-// Your base already includes /staging/images
 const IMAGE_API_BASE =
   'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images';
 
@@ -76,13 +68,13 @@ const ProductCard = ({
         }
 
         if (!cancelled) {
-          setImageSrc(json.url); // direct S3 presigned URL
+          setImageSrc(json.url);
         }
       } catch (err: unknown) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : 'Image load error';
           setError(message);
-          setImageSrc(''); // or set a local placeholder
+          setImageSrc(''); 
         }
       }
     })();
@@ -95,7 +87,6 @@ const ProductCard = ({
   return (
     <S.Link href={`/product/${id}`}>
       <S.ProductCard data-cy={CypressFields.ProductCard}>
-        {/* If S.Image is a styled <img>, use `src={imageSrc}` instead of `$src` */}
         <S.Image $src={imageSrc} data-error={error || undefined} />
         <div>
           <S.ProductName>{name}</S.ProductName>
