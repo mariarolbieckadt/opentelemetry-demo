@@ -33,7 +33,7 @@ function isPresignResponse(x: unknown): x is PresignResponse {
 
 // Your base already includes /staging/images
 const IMAGE_API_BASE =
-  'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images/';
+  'https://p6yxe9qil9.execute-api.us-east-1.amazonaws.com/staging/images';
 
 const SCREEN = '860x600';
 
