@@ -144,7 +144,7 @@ class WebsiteBrowserUser(PlaywrightUser):
             for i in range(random.choice([1, 2, 3, 4])):
                 # Get a random product link and click on it
                 product_id = random.choice(products)
-                await page.click(f"a[href='/product/{product_id}']")
+                await page.goto(f"/product/{product_id}", wait_until="domcontentloaded")
 
                 # Add a random number of products to the cart
                 product_count = random.choice([1, 2, 3, 4, 5, 10])
@@ -184,7 +184,7 @@ class WebsiteBrowserUser(PlaywrightUser):
             raise RescheduleTask(e)
         
 
-    @task(3)
+    @task(1)
     @pw
     async def view_product_page_and_add_to_cart(self, page: PageWithRetry):
         """
