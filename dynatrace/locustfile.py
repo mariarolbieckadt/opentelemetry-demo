@@ -132,7 +132,7 @@ class WebsiteBrowserUser(PlaywrightUser):
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
 
-    @task(3)
+    @task(5)
     @pw
     async def add_product_to_cart_and_checkout(self, page: PageWithRetry):
         try:
