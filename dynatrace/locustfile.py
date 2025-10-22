@@ -238,25 +238,39 @@ class WebsiteBrowserUser(PlaywrightUser):
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
 
-    @task(5)
+    @task(3)
     @pw
     async def add_product_to_cart_and_checkout(self, page: PageWithRetry):
-        """
-        BEGIN on a product page (full load), add to cart, then proceed through checkout form.
-        """
         try:
-            await start_on_product_page(page)
-            # Add 1-4 products
-            for _ in range(random.choice([1, 2, 3, 4])):
-                pid = random.choice(products)
-                await page.goto(f"/product/{pid}", wait_until=PAGE_WAIT_UNTIL)
-                await add_random_quantity_and_add_to_cart(page)
+            page.on("console", lambda msg: print(msg.text))
+            await page.route('**/*', add_baggage_header)
+            await page.goto("/", wait_until="domcontentloaded")
 
-            await open_cart_and_go_to_cart_page(page)
+            # Add 1-4 products to the cart
+            for i in range(random.choice([1, 2, 3, 4])):
+                # Get a random product link and click on it
+                product_id = random.choice(products)
+                await page.click(f"a[href='/product/{product_id}']")
 
-            # Fill in checkout details
+                # Add a random number of products to the cart
+                product_count = random.choice([3, 4, 5, 8, 9, 10])
+                await page.select_option('select[data-cy="product-quantity"]', value=str(product_count))
+
+                # add the product to our cart
+                await page.click('button:has-text("Add To Cart")')
+
+                # Continue Shopping
+                await page.click('button:has-text("Continue Shopping")')
+
+            # Open the Shopping cart flyout
+            await page.click('a[data-cy="cart-icon"]')
+            # Click the go to shopping cart button
+            await page.click('button:has-text("Go to Shopping Cart")')
+
+            # select a random user from the people.json file and checkout
             checkout_details = random.choice(people)
             await page.select_option('select[name="currency_code"]', value=str(checkout_details['userCurrency']))
+
             await page.locator('input#email').fill(checkout_details['email'])
             await page.locator('input#street_address').fill(checkout_details['address']['streetAddress'])
             await page.locator('input#zip_code').fill(str(checkout_details['address']['zipCode']))
@@ -270,10 +284,11 @@ class WebsiteBrowserUser(PlaywrightUser):
 
             # Complete the order
             await page.click('button:has-text("Place Order")')
-            await rum_flush(page)
+            await page.wait_for_timeout(8000)  # giving the browser time to export the traces
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             raise RescheduleTask(e)
+        
 
     @task(1)
     @pw
