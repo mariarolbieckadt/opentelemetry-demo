@@ -40,9 +40,6 @@ from openfeature.contrib.hook.opentelemetry import TracingHook
 
 from playwright.async_api import Route, Request
 
-# ---------------------------
-# OpenTelemetry / logging setup (unchanged)
-# ---------------------------
 logger_provider = LoggerProvider(resource=Resource.create(
     {
         "service.name": "load-generator",
@@ -71,20 +68,16 @@ SystemMetricsInstrumentor().instrument()
 URLLib3Instrumentor().instrument()
 logging.info("Instrumentation complete")
 
-# ---------------------------
-# Feature flags (unchanged)
-# ---------------------------
+# Initialize Flagd provider
 base_url = f"http://{os.environ.get('FLAGD_HOST', 'localhost')}:{os.environ.get('FLAGD_OFREP_PORT', 8016)}"
 api.set_provider(OFREPProvider(base_url=base_url))
 api.add_hooks([TracingHook()])
 
 def get_flagd_value(FlagName):
+    # Initialize OpenFeature    
     client = api.get_client()
     return client.get_integer_value(FlagName, 0)
 
-# ---------------------------
-# Data & constants (unchanged)
-# ---------------------------
 categories = [
     "binoculars",
     "telescopes",
@@ -111,18 +104,12 @@ products = [
 people_file = open('people.json')
 people = json.load(people_file)
 
-# How strictly to wait for initial navigation:
-#  - "load": wait for onload (safe default; avoids hangs with SPAs doing long polling)
-#  - "networkidle": stricter, but can hang if background connections are kept open
 PAGE_WAIT_UNTIL = os.environ.get("PAGE_WAIT_UNTIL", "load")
 if PAGE_WAIT_UNTIL not in ("load", "domcontentloaded", "commit", "networkidle"):
     PAGE_WAIT_UNTIL = "load"
 
 RUM_FLUSH_MS = int(os.environ.get("RUM_FLUSH_MS", "8000"))
 
-# ---------------------------
-# Shared helpers
-# ---------------------------
 async def add_baggage_header(route: Route, request: Request):
     existing_baggage = request.headers.get('baggage', '')
     headers = {
@@ -132,18 +119,13 @@ async def add_baggage_header(route: Route, request: Request):
     await route.continue_(headers=headers)
 
 async def start_on_product_page(page: PageWithRetry, product_id: str | None = None) -> str:
-    """
-    Always begin the scenario with a *full document navigation* to /product/<id>.
-    This ensures Dynatrace classifies the first action as a 'Load action' for that URL.
-    """
+
     page.on("console", lambda msg: print(msg.text))
     await page.route('**/*', add_baggage_header)
 
     pid = product_id or random.choice(products)
-    # Full navigation directly to product page (first action in scenario)
     await page.goto(f"/product/{pid}", wait_until=PAGE_WAIT_UNTIL)
 
-    # Heuristic: wait for a visible "Add To Cart" button if present
     try:
         await page.wait_for_selector('button:has-text("Add To Cart")', timeout=8000)
     except Exception:
@@ -151,20 +133,17 @@ async def start_on_product_page(page: PageWithRetry, product_id: str | None = No
     return pid
 
 async def rum_flush(page: PageWithRetry, ms: int = RUM_FLUSH_MS):
-    """Give the browser time to send RUM beacons (LCP/INP/CLS)."""
     await page.wait_for_timeout(ms)
 
 async def add_random_quantity_and_add_to_cart(page: PageWithRetry):
-    # Optional quantity set (if the selector exists)
     try:
         await page.select_option('select[data-cy="product-quantity"]',
                                  value=str(random.choice([1, 2, 3, 4, 5, 10])))
     except Exception:
         pass
-    # Add to cart
+
     await page.click('button:has-text("Add To Cart")', timeout=6000)
 
-    # Some UIs show a "Continue Shopping" button
     try:
         await page.click('button:has-text("Continue Shopping")', timeout=6000)
     except Exception:
@@ -173,12 +152,12 @@ async def add_random_quantity_and_add_to_cart(page: PageWithRetry):
 async def open_cart_and_go_to_cart_page(page: PageWithRetry):
     try:
         await page.click('a[data-cy="cart-icon"]', timeout=6000)
-        # Prefer a real navigation to /cart if it exists
+
         try:
             async with page.expect_navigation(timeout=8000):
                 await page.click('button:has-text("Go to Shopping Cart")', timeout=6000)
         except Exception:
-            # SPA route change fallback
+
             try:
                 await page.wait_for_url("**/cart**", timeout=8000)
             except Exception:
@@ -186,22 +165,16 @@ async def open_cart_and_go_to_cart_page(page: PageWithRetry):
     except Exception:
         pass
 
-# ---------------------------
-# User Scenarios
-# ---------------------------
 class WebsiteBrowserUser(PlaywrightUser):
     weight = 2
-    headless = True  # headless browser
+    headless = True  #to use a headless browser, without a GUI
 
     @task(1)
     @pw
     async def open_cart_page_and_change_currency(self, page: PageWithRetry):
-        """
-        BEGIN on a product page (full load) for correct page-splitting in Dynatrace,
-        then proceed to the cart and change currency.
-        """
+
         try:
-            await start_on_product_page(page)  # <-- first action is product page load
+            await start_on_product_page(page)
             await open_cart_and_go_to_cart_page(page)
 
             # Select a random user from the people.json file and change currency
@@ -217,12 +190,8 @@ class WebsiteBrowserUser(PlaywrightUser):
     @task(1)
     @pw
     async def add_product_to_cart(self, page: PageWithRetry):
-        """
-        BEGIN on a product page (full load), then add 1-4 items to the cart,
-        finally open the cart page.
-        """
+
         try:
-            # Always start on a product page so Dynatrace sees a Load action for /product/<id>
             await start_on_product_page(page)
 
             # Add 1-4 products (possibly different product IDs each time)
@@ -293,11 +262,8 @@ class WebsiteBrowserUser(PlaywrightUser):
     @task(1)
     @pw
     async def view_product_page(self, page: PageWithRetry):
-        """
-        The simplest scenario: only open a product page as the very first action and wait.
-        """
+
         try:
-            # Pick a constrained set if you want more stable caching patterns
             pid = random.choice(["0PUK6V6EV0", "1YMWWN1N4O", "2ZYFJ3GM2N", "66VCHSJNUP"])
             await start_on_product_page(page, product_id=pid)
             await rum_flush(page)

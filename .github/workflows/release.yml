@@ -5,7 +5,7 @@ name: "Build and Publish"
 on:
   push:
     branches:
-      - "image_processing_lambda"
+      - "main"
 
 permissions:
   contents: read
