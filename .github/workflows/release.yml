@@ -5,7 +5,7 @@ name: "Build and Publish"
 on:
   push:
     branches:
-      - "main"
+      - "fix_missing_session_id"
 
 permissions:
   contents: read
