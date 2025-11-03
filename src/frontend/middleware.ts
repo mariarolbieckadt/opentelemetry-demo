@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
     response.cookies.set('SESSIONID', v4(), { path: '/', httpOnly: false, sameSite: 'lax' })
   // Set the USERID cookie if it is not set
   if(!request.cookies.has('USERID'))
-    response.cookies.set('USERID', v4())
+    response.cookies.set('USERID', v4(), { path: '/', httpOnly: false, sameSite: 'lax' })
 
   return response
 }
