@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix_missing_session_id
   workflow_dispatch:
 
 permissions:
